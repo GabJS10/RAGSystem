@@ -68,7 +68,7 @@ def build_chunks_for_document(pages_text: List[str], chunk_size: int = 500, over
         page_chunks = chunk_text(page_text, page_num, chunk_size, overlap)
         all_chunks.extend(page_chunks)
 
-        last_page_text = page_text[-overlap:]  # Save the last part for the next page
+        last_page_text = page_text[-overlap:]  
 
 
 

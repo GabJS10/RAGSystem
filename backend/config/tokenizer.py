@@ -17,7 +17,7 @@ model.eval()
 if device == "cuda":
     model.to(device)
     try:
-        model.half()   # fp16
+        model.half()  
         torch.backends.cudnn.benchmark = True
     except Exception as e:
         print("No se pudo usar half precision:", e)
@@ -30,7 +30,7 @@ def re_rank_chunks(query: str, chunks: List[Chunk], top_k: int = 3, max_length: 
     texts = [ch["content"] for ch in chunks]
 
 
-    # Tokenizar batch (usa padding por defecto -> batch_size)
+    # Tokenizar batch 
     inputs = tokenizer(
         [[query, t] for t in texts],
         padding=True,
@@ -39,12 +39,12 @@ def re_rank_chunks(query: str, chunks: List[Chunk], top_k: int = 3, max_length: 
         return_tensors="pt"
     )
 
-    # Mover tensores al device (muy importante)
+    # Mover tensores al device 
     inputs = {k: v.to(device) for k, v in inputs.items()} 
 
     with torch.inference_mode():
         outputs = model(**inputs)
-        scores = outputs.logits.view(-1).float()  # shape: (N,)
+        scores = outputs.logits.view(-1).float() 
     
     # Pasar scores a CPU y emparejar con textos
     scores_cpu = scores.cpu().numpy().tolist()

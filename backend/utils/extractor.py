@@ -71,12 +71,10 @@ def extract_docx_paragraphs(content: bytes) -> List[str]:
     return pages
 
 
-# ---- Extracción de páginas (PyMuPDF). Si no está disponible, caemos a PyPDF2.
 def extract_pdf_pages(content: bytes) -> List[str]:
     pages = []
     with fitz.open(stream=content, filetype="pdf") as doc:
         for p in doc:
-            # Por bloques da mejor orden que "texto plano" en algunos PDFs
             pages.append(p.get_text("text"))
     return pages
 
