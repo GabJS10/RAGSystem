@@ -34,93 +34,12 @@ def estado(job_id: str):
 
  
 @router.post("/ask-from-supabase")
-async def ask_supabase(body: AskSupabaseModel,user_id: str = Depends(get_current_user_jwt)):
+async def ask_supabase(body: AskSupabaseModel, user_id: str = Depends(get_current_user_jwt)):
+    from utils.rag_service import process_rag_pipeline
 
-  if body.conversation_id is None:
-    conversation = await create_conversation(body.question,user_id)
-    conversation_id = conversation["id"]
-  else:
-    conversation_id = body.conversation_id
-
-  messages = await get_last_messages(conversation_id=conversation_id,user_id=user_id)
-
-
-  if messages is None:
-    context_messages = ""
-  else:
-    context_messages = "\n".join([f"{message['role'].capitalize()}: {message['content']}" for message in messages])
-
-
-  chunks = retrieve_chunks(body.question,body.top_k,body.document_id,filter_user=user_id)
-
-  print(chunks)
-
-  if body.variants:
-    prompt_variants = f"""
-      Reformula la siguiente pregunta en 3 formas distintas, 
-      manteniendo el mismo significado pero con palabras diferentes.
-      Pregunta: "{body.question}"
-      Devuelve solo una lista JSON de strings. Ejemplo:
-      ```json
-      ["Variante 1","Variante 2","Variante 3"]
-      ```
-    """
+    result = await process_rag_pipeline(body, user_id)
     
-    response_variants = openai.chat.completions.create(
-      model="gpt-3.5-turbo",
-      messages=[
-        {"role": "system", "content": "Eres un asistente experto en reformular preguntas."}
-        ,{"role": "user", "content": prompt_variants}],temperature=0.7
-    )
-
-    variants = response_variants.choices[0].message.content
-
-    variants = eval(variants.split("```")[1].strip().split("json")[-1])
-
-    if not isinstance(variants, list) or len(variants) == 0:
-      raise HTTPException(status_code=500, detail="Error generating variants")
-
-    chunks = multi_query_retrieve(body.question,variants,body.top_k,body.document_id,user_id)[:3]
-
-
-  if body.re_rank:
-    chunks = re_rank_chunks(body.question,chunks)
-
-
-  context = "\n\n".join([chunk["content"] for chunk in chunks])
-
-  prompt = f"""
-    Context_of_previous_conversation: {context_messages}
-    Main_Context: {context}
-    Question: {body.question}
-    Answer:
-  """
-
-  response = openai.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-      {"role": "system", "content": "Eres un asistente experto que responde usando únicamente el contexto proporcionado."}
-      ,{"role": "user", "content": prompt}],temperature=0.2
-  )
-
-  answer = response.choices[0].message.content
-
-  await save_message(message=body.question,conversation_id=conversation_id,user_id=user_id,role="user")
-  await save_message(message=answer,conversation_id=conversation_id,user_id=user_id,role="assistant")
-
-  documents_id = set([chunk["document_id"] for chunk in chunks])
-
-  documents_name = []
-
-  for document_id in documents_id:
-    try:
-      response = supabase.table("documents").select("*").eq("id", document_id).eq("user_id", user_id).execute()
-      documents_name.append(response.data[0]["name"])
-    except Exception as e:
-      raise HTTPException(status_code=500, detail=f"Error getting document from Supabase: {e}")
-    
-
-  return {"question": body.question, "answer": answer,"chunks":chunks,"documents":documents_name}
+    return result
 
 @router.post("/embedding")
 async def embedding(embedding_schema: EmbeddingSchema,user_id: str = Depends(get_current_user_jwt)):
