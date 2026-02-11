@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from .embedder import get_embedding
 from utils.openai import openai as client
 from typing import List,Optional
+
 def multi_query_retrieve(question: str, variants: List[str], top_k=3, document_id:Optional[str]=None, user_id:Optional[str]=None):
     # 1. Generar embeddings en batch
     queries = [question] + variants

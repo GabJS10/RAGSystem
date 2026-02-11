@@ -55,6 +55,7 @@ def re_rank_chunks(query: str, chunks: List[Chunk], top_k: int = 3, max_length: 
 
     #add score
 
+    #modifica aca
     for i in range(len(chunks)):
         chunks[i]["score"] = ranked[i][1]
 

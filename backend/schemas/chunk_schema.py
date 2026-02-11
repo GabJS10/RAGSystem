@@ -6,3 +6,4 @@ class Chunk(TypedDict):
     chunk_index: int
     token_count: int
     page: int
+    document_id: str
