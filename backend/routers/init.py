@@ -1,10 +1,18 @@
 from datetime import datetime
+from typing import Any
 
 from config.redis_client import queue, redis_client
 from config.supabase_client import bucket_name, supabase
 from config.tokenizer import re_rank_chunks
-from typing import Any
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from rq.job import Job
 from schemas.ask_schema import AskSupabaseModel
 from schemas.embedding_schema import EmbeddingSchema
@@ -82,7 +90,7 @@ async def websocket_endpoint(
         try:
             await send_update("error", str(e))
         except Exception:
-            pass # Connection likely closed
+            pass  # Connection likely closed
 
 
 @router.post("/embedding")

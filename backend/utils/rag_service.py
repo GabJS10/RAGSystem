@@ -19,6 +19,7 @@ async def process_rag_pipeline(
     callback: Callable[[str, Any], Awaitable[None]] = noop_callback,
 ) -> dict:
 
+    print(body.document_id)
     # 1. Handle Conversation ID
     if body.conversation_id is None:
         await callback("status", "Creando nueva conversación...")
