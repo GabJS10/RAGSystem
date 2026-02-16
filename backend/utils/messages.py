@@ -1,7 +1,8 @@
 from config.supabase_client import supabase
-from fastapi import HTTPException,Depends
-from typing import Literal
-async def create_conversation(title: str = "Nueva conversación",user_id: str = None):
+from fastapi import HTTPException, Depends
+from typing import Literal, Optional
+
+async def create_conversation(title: str = "Nueva conversación", user_id: Optional[str] = None):
   if user_id is None:
       raise HTTPException(status_code=400, detail="user_id is required")
   
@@ -11,7 +12,7 @@ async def create_conversation(title: str = "Nueva conversación",user_id: str =
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Error creating conversation: {e}")
 
-async def save_message(message: str,conversation_id: str,user_id: str = None, role: Literal["user","assistant"] = "user"):
+async def save_message(message: str, conversation_id: str, user_id: Optional[str] = None, role: Literal["user","assistant"] = "user"):
 
   print(role)
 
@@ -23,7 +24,7 @@ async def save_message(message: str,conversation_id: str,user_id: str = None, ro
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Error saving message: {e}")
   
-async def get_conversation(conversation_id: str,user_id: str = None ):
+async def get_conversation(conversation_id: str, user_id: Optional[str] = None):
   
   if user_id is None: 
     raise HTTPException(status_code=400, detail="user_id is required")
@@ -35,7 +36,7 @@ async def get_conversation(conversation_id: str,user_id: str = None ):
     raise HTTPException(status_code=500, detail=f"Error getting conversation: {e}")
   
 
-async def get_all_conversations(user_id: str = None):
+async def get_all_conversations(user_id: Optional[str] = None):
   
   if user_id is None: 
     raise HTTPException(status_code=400, detail="user_id is required")
@@ -46,7 +47,7 @@ async def get_all_conversations(user_id: str = None):
   except Exception as e:
     raise HTTPException(status_code=500, detail=f"Error getting conversations: {e}")
   
-async def get_last_messages(conversation_id: str,user_id: str = None,limit: int = 10):
+async def get_last_messages(conversation_id: str, user_id: Optional[str] = None, limit: int = 10):
   
   if user_id is None: 
     raise HTTPException(status_code=400, detail="user_id is required")

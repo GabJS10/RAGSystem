@@ -5,7 +5,7 @@ from config.tokenizer import re_rank_chunks
 from fastapi import HTTPException
 from schemas.ask_schema import AskSupabaseModel
 from utils.messages import create_conversation, get_last_messages, save_message
-from utils.openai import openai
+from utils.openai import openai, generate_title_from_question
 from utils.supabase_retrieve_chunks import multi_query_retrieve, retrieve_chunks
 
 
@@ -19,11 +19,11 @@ async def process_rag_pipeline(
     callback: Callable[[str, Any], Awaitable[None]] = noop_callback,
 ) -> dict:
 
-    print(body.document_id)
     # 1. Handle Conversation ID
     if body.conversation_id is None:
         await callback("status", "Creando nueva conversación...")
-        conversation = await create_conversation(body.question, user_id)
+        title = await generate_title_from_question(body.question)
+        conversation = await create_conversation(title, user_id)
         conversation_id = conversation["id"]
     else:
         conversation_id = body.conversation_id

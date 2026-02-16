@@ -81,8 +81,9 @@ async def websocket_endpoint(
                 continue
 
             # Procesar pipeline con el callback de websocket
-            await process_rag_pipeline(body, user_id, callback=send_update)
+            res = await process_rag_pipeline(body, user_id, callback=send_update)
 
+            await send_update("success", res)
     except WebSocketDisconnect:
         print(f"Client {user_id} disconnected")
     except Exception as e:
