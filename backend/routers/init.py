@@ -109,14 +109,16 @@ async def embedding(
 
 
 @router.post("/upload_document_to_supabase")
-def upload_document_to_supabase(
+async def upload_document_to_supabase(
     file: UploadFile = File(...), user_id: str = Depends(get_current_user_jwt)
 ):
 
     # implementar jobs encolados
+    file_bytes = await file.read()
+    filename = file.filename
 
     try:
-        job = queue.enqueue(upload_document, args=(file, user_id))
+        job = queue.enqueue(upload_document, args=(file_bytes, filename, user_id))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error encolando la tarea: {e}")
 
