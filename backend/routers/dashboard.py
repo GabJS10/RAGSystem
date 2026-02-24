@@ -1,6 +1,6 @@
 from config.supabase_client import supabase
 from fastapi import APIRouter, Depends, HTTPException
-from utils.get_current_user_jwt import get_current_jwt, get_current_user_jwt
+from utils.get_current_user_jwt import get_current_user_jwt
 
 router = APIRouter(
     prefix="/api/dashboard",
@@ -9,12 +9,10 @@ router = APIRouter(
 
 
 @router.get("/get-user")
-def get_user(
-    user_id: str = Depends(get_current_user_jwt), jwt: str = Depends(get_current_jwt)
-):
+def get_user(user_id: str = Depends(get_current_user_jwt)):
     try:
-        response = supabase.auth.get_user(jwt)
-        return response
+        response = supabase.table("profiles").select("*").eq("id", user_id).execute()
+        return response.data[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting user: {e}")
 
