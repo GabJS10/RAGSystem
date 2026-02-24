@@ -11,8 +11,18 @@ router = APIRouter(
 @router.post("/register")
 async def signup(body: signupSchema):
     try:
-        print("Estoy aqui")
-        supabase.auth.sign_up({"email": body.email, "password": body.password})
+        supabase.auth.sign_up(
+            {
+                "email": body.email,
+                "password": body.password,
+                "options": {
+                    "data": {
+                        "nombre": body.first_name,
+                        "fecha_nacimiento": body.birth_date.strftime("%Y-%m-%d"),
+                    },
+                },
+            }
+        )
     except Exception as e:
         print(e)
         raise HTTPException(status_code=400, detail=f"{e}")

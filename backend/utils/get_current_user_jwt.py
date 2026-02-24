@@ -19,6 +19,17 @@ def validate_token(token: str) -> str:
         raise ValueError(f"Invalid token {e}")
 
 
+async def get_current_jwt(authorization: str = Header(...)):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+
+    token = authorization.split(" ")[1]
+    try:
+        return token
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+
 async def get_current_user_jwt(authorization: str = Header(...)):
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization header")
