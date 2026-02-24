@@ -133,6 +133,7 @@ async def process_rag_pipeline(
     3.  Si el contexto es parcial, usa lo disponible y menciona qué podría faltar, pero intenta construir una respuesta útil.
     4.  Si el contexto NO es relevante para la pregunta, indícalo claramente.
     5.  Mantén un tono profesional y servicial.
+    6.  IMPORTANTE: Formatea tu respuesta utilizando Markdown para estructurar la información (encabezados, listas, negritas, bloques de código, etc.) de manera clara y legible.
     """
 
     user_prompt = f"""
