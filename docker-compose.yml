@@ -17,6 +17,7 @@ services:
       - redis
     volumes:
       - ./backend:/app # hot reload con tu código local
+      - shared_temp:/tmp/rag_uploads
     env_file:
       - .env
   worker:
@@ -27,7 +28,11 @@ services:
       - redis
     volumes:
       - ./backend:/app # comparte código con api
+      - shared_temp:/tmp/rag_uploads
     env_file:
       - .env
     environment:
       - PYTHONPATH=/app
+
+volumes:
+  shared_temp:

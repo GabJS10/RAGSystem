@@ -1,5 +1,8 @@
 from datetime import datetime
 from typing import Any
+import tempfile
+import shutil
+import os
 
 from config.redis_client import queue, redis_client
 from config.supabase_client import bucket_name, supabase
@@ -112,14 +115,37 @@ async def embedding(
 async def upload_document_to_supabase(
     file: UploadFile = File(...), user_id: str = Depends(get_current_user_jwt)
 ):
-
-    # implementar jobs encolados
-    file_bytes = await file.read()
     filename = file.filename
 
+    # Save UploadFile to a temporary file on disk
+    upload_dir = '/tmp/rag_uploads'
+    os.makedirs(upload_dir, exist_ok=True)
+    fd, temp_file_path = tempfile.mkstemp(dir=upload_dir)
     try:
-        job = queue.enqueue(upload_document, args=(file_bytes, filename, user_id))
+        with os.fdopen(fd, 'wb') as f:
+            shutil.copyfileobj(file.file, f)
     except Exception as e:
+        os.remove(temp_file_path)
+        raise HTTPException(status_code=500, detail=f"Error guardando archivo temporal: {e}")
+
+    # Initial persistence in Supabase
+    metadata = {"name": filename, "user_id": user_id, "status": "procesando"}
+    query = supabase.table("documents").insert(metadata).execute()
+
+    if hasattr(query, "error") and query.error:
+        os.remove(temp_file_path)
+        raise HTTPException(
+            status_code=500, detail=f"Error guardando metadatos iniciales en Supabase: {query.error}"
+        )
+
+    document_id = query.data[0]["id"]
+
+    try:
+        job = queue.enqueue(upload_document, args=(temp_file_path, filename, user_id, document_id))
+    except Exception as e:
+        os.remove(temp_file_path)
+        # Assuming you'd want to update status to error here if the enqueue fails
+        supabase.table("documents").update({"status": "error"}).eq("id", document_id).execute()
         raise HTTPException(status_code=500, detail=f"Error encolando la tarea: {e}")
 
-    return {"message": "Tarea encolada", "job_id": job.get_id()}
+    return {"message": "Tarea encolada", "job_id": job.get_id(), "document_id": document_id}
