@@ -5,29 +5,27 @@ from typing import List
 from spire.doc import Document 
 from spire.doc import FixedLayoutDocument
 from spire.doc import FileFormat, HeaderFooterType
-def extract_text_from_file(filename: str, content: bytes) -> List[str]:
+
+def extract_text_from_file(filename: str, file_path: str) -> List[str] | str:
     
     #Check the file type
     if filename.endswith(".pdf"):
-        return extract_pdf_pages(content)
+        return extract_pdf_pages(file_path)
     elif filename.endswith(".docx"):
-        return extract_docx_paragraphs(content)
+        return extract_docx_paragraphs(file_path)
     #If the file type is not pdf or docx
     #Return an empty string
     elif filename.endswith(".txt"):
-        return content.decode("utf-8")
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
     else:
         return ""
 
 # ---- Implementación DOCX
-def extract_docx_paragraphs(content: bytes) -> List[str]:
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name 
+def extract_docx_paragraphs(file_path: str) -> List[str]:
     
     doc = Document()
-    doc.LoadFromFile(tmp_path)
+    doc.LoadFromFile(file_path)
 
 
     # delete footers of the document
@@ -67,13 +65,12 @@ def extract_docx_paragraphs(content: bytes) -> List[str]:
             pages.append(clean_text(text))
     
     doc.Close()
-    os.remove(tmp_path)
     return pages
 
 
-def extract_pdf_pages(content: bytes) -> List[str]:
+def extract_pdf_pages(file_path: str) -> List[str]:
     pages = []
-    with fitz.open(stream=content, filetype="pdf") as doc:
+    with fitz.open(file_path) as doc:
         for p in doc:
             pages.append(p.get_text("text"))
     return pages

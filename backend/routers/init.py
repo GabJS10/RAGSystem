@@ -1,8 +1,8 @@
+import os
+import shutil
+import tempfile
 from datetime import datetime
 from typing import Any
-import tempfile
-import shutil
-import os
 
 from config.redis_client import queue, redis_client
 from config.supabase_client import bucket_name, supabase
@@ -101,14 +101,26 @@ async def websocket_endpoint(
 async def embedding(
     embedding_schema: EmbeddingSchema, user_id: str = Depends(get_current_user_jwt)
 ):
-    # get document data
     try:
+        # Update document status to 'procesando_embedding'
+        supabase.table("documents").update({"status": "embedding"}).eq(
+            "id", embedding_schema.document_id
+        ).eq("user_id", user_id).execute()
+
+        # Enqueue the job
         job = queue.enqueue(
             embedding_function, args=(embedding_schema.document_id, user_id)
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error encolando la tarea: {e}")
-    return {"message": "Tarea encolada", "job_id": job.get_id()}
+        # Revert to error if we couldn't even enqueue
+        supabase.table("documents").update({"status": "error"}).eq(
+            "id", embedding_schema.document_id
+        ).execute()
+        raise HTTPException(
+            status_code=500, detail=f"Error encolando la tarea de embedding: {e}"
+        )
+
+    return {"message": "Tarea de embedding encolada", "job_id": job.get_id()}
 
 
 @router.post("/upload_document_to_supabase")
@@ -118,15 +130,17 @@ async def upload_document_to_supabase(
     filename = file.filename
 
     # Save UploadFile to a temporary file on disk
-    upload_dir = '/tmp/rag_uploads'
+    upload_dir = "/tmp/rag_uploads"
     os.makedirs(upload_dir, exist_ok=True)
     fd, temp_file_path = tempfile.mkstemp(dir=upload_dir)
     try:
-        with os.fdopen(fd, 'wb') as f:
+        with os.fdopen(fd, "wb") as f:
             shutil.copyfileobj(file.file, f)
     except Exception as e:
         os.remove(temp_file_path)
-        raise HTTPException(status_code=500, detail=f"Error guardando archivo temporal: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error guardando archivo temporal: {e}"
+        )
 
     # Initial persistence in Supabase
     metadata = {"name": filename, "user_id": user_id, "status": "procesando"}
@@ -135,17 +149,26 @@ async def upload_document_to_supabase(
     if hasattr(query, "error") and query.error:
         os.remove(temp_file_path)
         raise HTTPException(
-            status_code=500, detail=f"Error guardando metadatos iniciales en Supabase: {query.error}"
+            status_code=500,
+            detail=f"Error guardando metadatos iniciales en Supabase: {query.error}",
         )
 
     document_id = query.data[0]["id"]
 
     try:
-        job = queue.enqueue(upload_document, args=(temp_file_path, filename, user_id, document_id))
+        job = queue.enqueue(
+            upload_document, args=(temp_file_path, filename, user_id, document_id)
+        )
     except Exception as e:
         os.remove(temp_file_path)
         # Assuming you'd want to update status to error here if the enqueue fails
-        supabase.table("documents").update({"status": "error"}).eq("id", document_id).execute()
+        supabase.table("documents").update({"status": "error"}).eq(
+            "id", document_id
+        ).execute()
         raise HTTPException(status_code=500, detail=f"Error encolando la tarea: {e}")
 
-    return {"message": "Tarea encolada", "job_id": job.get_id(), "document_id": document_id}
+    return {
+        "message": "Tarea encolada",
+        "job_id": job.get_id(),
+        "document_id": document_id,
+    }
