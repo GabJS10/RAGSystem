@@ -1,29 +1,36 @@
 import os
 import tempfile
-from utils.extractor import extract_text_from_file
-from utils.embedder import get_embedding
-from config.supabase_client import supabase, bucket_name
+
+from config.supabase_client import bucket_name, supabase
 from utils.chuncker import build_chunks_for_document, sha256
+from utils.embedder import get_embedding
+from utils.extractor import extract_text_from_file
 
 
 def embedding(document_id: str, user_id: str):
     temp_file_path = None
     try:
-        response = supabase.table("documents").select("*").eq("user_id", user_id).eq("id", document_id).execute()
+        response = (
+            supabase.table("documents")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("id", document_id)
+            .execute()
+        )
 
         if len(response.data) == 0:
             raise ValueError("Document not found")
 
         data = response.data[0]
-        
+
         # Download from Storage directly to disk
         file_bytes = supabase.storage.from_(bucket_name).download(data["path"])
-        
-        upload_dir = '/tmp/rag_uploads'
+
+        upload_dir = "/tmp/rag_uploads"
         os.makedirs(upload_dir, exist_ok=True)
         fd, temp_file_path = tempfile.mkstemp(dir=upload_dir)
-        
-        with os.fdopen(fd, 'wb') as f:
+
+        with os.fdopen(fd, "wb") as f:
             f.write(file_bytes)
 
         pages_text = extract_text_from_file(data["name"], temp_file_path)
@@ -31,7 +38,12 @@ def embedding(document_id: str, user_id: str):
         chunks = build_chunks_for_document(pages_text)
 
         # Optimize N+1 queries by fetching existing hashes at once
-        exist_res = supabase.table("chunks").select("content_hash").eq("document_id", document_id).execute()
+        exist_res = (
+            supabase.table("chunks")
+            .select("content_hash")
+            .eq("document_id", document_id)
+            .execute()
+        )
         existing_hashes = {row["content_hash"] for row in exist_res.data}
 
         nuevos_chunks = []
@@ -46,7 +58,9 @@ def embedding(document_id: str, user_id: str):
             nuevos_chunks.append(ch)
 
         if len(nuevos_chunks) == 0:
-            supabase.table("documents").update({"status": "completado"}).eq("id", document_id).execute()
+            supabase.table("documents").update({"status": "completado"}).eq(
+                "id", document_id
+            ).execute()
             return {"message": "No new chunks to embed"}
 
         embs = get_embedding([text["content"] for text in nuevos_chunks])
@@ -66,20 +80,24 @@ def embedding(document_id: str, user_id: str):
             payloads.append(payload)
 
         supabase.table("chunks").insert(payloads).execute()
-        
-        # Update document status to 'completado' on success
-        supabase.table("documents").update({"status": "completado"}).eq("id", document_id).execute()
+
+        # Update document status to 'embedding' on success
+        supabase.table("documents").update({"status": "embedded"}).eq(
+            "id", document_id
+        ).execute()
 
         return {"message": "Embedding successful"}
 
     except Exception as e:
         # Update document status to 'error' on failure
         try:
-            supabase.table("documents").update({"status": "error"}).eq("id", document_id).execute()
+            supabase.table("documents").update({"status": "error_embedding"}).eq(
+                "id", document_id
+            ).execute()
         except Exception as db_error:
             print(f"Error updating status to error: {db_error}")
         raise e
-        
+
     finally:
         # Clean up temporary file from disk
         if temp_file_path and os.path.exists(temp_file_path):

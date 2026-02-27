@@ -113,7 +113,7 @@ async def embedding(
         )
     except Exception as e:
         # Revert to error if we couldn't even enqueue
-        supabase.table("documents").update({"status": "error"}).eq(
+        supabase.table("documents").update({"status": "error_embedding"}).eq(
             "id", embedding_schema.document_id
         ).execute()
         raise HTTPException(
