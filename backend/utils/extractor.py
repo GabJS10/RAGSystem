@@ -1,6 +1,7 @@
 import fitz
 import tempfile, os
 import re
+import pandas as pd
 from typing import List
 from spire.doc import Document 
 from spire.doc import FixedLayoutDocument
@@ -13,6 +14,8 @@ def extract_text_from_file(filename: str, file_path: str) -> List[str] | str:
         return extract_pdf_pages(file_path)
     elif filename.endswith(".docx"):
         return extract_docx_paragraphs(file_path)
+    elif filename.endswith((".csv", ".xlsx", ".xls")):
+        return extract_tabular_data(file_path, filename)
     #If the file type is not pdf or docx
     #Return an empty string
     elif filename.endswith(".txt"):
@@ -82,3 +85,33 @@ def clean_text(text: str) -> str:
     # Quitar dobles espacios
     text = re.sub(r'\s+', ' ', text)
     return text.strip()
+
+def extract_tabular_data(file_path: str, filename: str) -> List[str]:
+    try:
+        rows_data = []
+        if filename.endswith(".csv"):
+            df = pd.read_csv(file_path, sep=None, engine='python')
+            df.fillna("", inplace=True)
+            for _, row in df.iterrows():
+                row_str = " | ".join([f"{col}: {val}" for col, val in row.items()])
+                rows_data.append(row_str)
+        
+        elif filename.endswith((".xlsx", ".xls")):
+            dfs = pd.read_excel(file_path, sheet_name=None)
+            for sheet_name, df in dfs.items():
+                df.fillna("", inplace=True)
+                for _, row in df.iterrows():
+                    row_str = " | ".join([f"{col}: {val}" for col, val in row.items()])
+                    rows_data.append(f"[Hoja: {sheet_name}] {row_str}")
+
+        # Agrupar en bloques de 15 filas
+        pages = []
+        for i in range(0, len(rows_data), 15):
+            block = rows_data[i:i + 15]
+            pages.append("\n".join(block))
+            
+        return pages
+
+    except Exception as e:
+        raise Exception(f"Error procesando archivo tabular {filename}: {str(e)}")
+
