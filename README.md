@@ -1,70 +1,98 @@
-# SistemaRAG
+# SistemaRAG (Retrieval-Augmented Generation)
 
-SistemaRAG es una API backend para un sistema de RAG (Retrieval-Augmented Generation) construido con Python y FastAPI. Proporciona endpoints para la gestión de autenticación, mensajes y tableros, orquestando el procesamiento de documentos y búsqueda vectorial.
+## Descripción
 
-## Tecnologías Principales
+SistemaRAG es un backend desarrollado con **FastAPI** que proporciona una plataforma completa para la carga, procesamiento y consulta de documentos mediante técnicas de Retrieval-Augmented Generation (RAG). 
 
-- **Framework Web:** [FastAPI](https://fastapi.tiangolo.com/)
-- **Cola de Tareas:** [RQ (Redis Queue)](https://python-rq.org/)
-- **Base de Datos / Auth:** [Supabase](https://supabase.com/)
-- **Búsqueda Vectorial:** FAISS / Supabase pgvector (según implementación)
-- **Modelos IA:** OpenAI / HuggingFace Transformers
-- **Infraestructura:** Docker & Docker Compose
-- **Cache/Broker:** Redis
+El sistema utiliza **Supabase** para la gestión de base de datos, autenticación de usuarios y almacenamiento de archivos. Implementa procesamiento asíncrono para la generación de *embeddings* utilizando **Redis** y **RQ** (Redis Queue), y se integra con modelos de Inteligencia Artificial (como OpenAI, PyTorch y HuggingFace Transformers) para entender y responder a preguntas basadas en los documentos cargados.
+
+## Características Principales
+
+*   **Autenticación y Gestión de Usuarios**: Registro, inicio de sesión (JWT) y gestión de perfiles de usuario integrados con Supabase Auth.
+*   **Gestión de Documentos**: 
+    *   Carga y almacenamiento de archivos de forma segura.
+    *   Procesamiento asíncrono de documentos (extracción de texto y segmentación/*chunking*).
+    *   Listado y eliminación de documentos asociados a cada usuario.
+*   **Motor RAG avanzado**:
+    *   Generación de *embeddings* en segundo plano.
+    *   Búsqueda vectorial de contexto relevante.
+    *   Endpoints REST (`/ask-from-supabase`) y **WebSockets** (`/ws`) para respuestas en tiempo real o por *streaming*.
+*   **Historial de Conversaciones**: Almacenamiento automático y recuperación de hilos de chat y mensajes.
+
+## Tecnologías Utilizadas
+
+*   **Backend**: Python 3.12+, FastAPI
+*   **Base de datos, Auth & Storage**: Supabase (PostgreSQL)
+*   **Cola de tareas y Caché**: Redis, RQ (Redis Queue)
+*   **IA & Machine Learning**: 
+    *   OpenAI API
+    *   HuggingFace (`transformers`, `accelerate`)
+    *   PyTorch
+    *   FAISS (Búsqueda de similitud)
+*   **Orquestación**: Docker y Docker Compose
 
 ## Estructura del Proyecto
 
-El código fuente se encuentra principalmente en el directorio `backend/`.
-
+```text
+SistemaRAG/
+├── backend/
+│   ├── config/         # Configuraciones globales (Supabase, Redis, FastAPI, Tokenizers)
+│   ├── routers/        # Definición de endpoints de la API (Auth, Dashboard, RAG, etc.)
+│   ├── schemas/        # Modelos de validación de datos (Pydantic)
+│   ├── utils/          # Lógica de negocio core (Procesamiento RAG, LLMs, Chunking)
+│   ├── worker/         # Scripts del proceso trabajador en segundo plano (RQ Worker)
+│   └── main.py         # Punto de entrada principal de la aplicación FastAPI
+├── docker-compose.yml  # Orquestación de contenedores (API, Redis, Worker)
+└── requirements.txt    # Dependencias del proyecto Python
 ```
-backend/
-├── config/         # Configuraciones de la aplicación (settings, database, etc.)
-├── routers/        # Definición de endpoints (auth, dashboard, messages, init)
-├── schemas/        # Modelos Pydantic para validación de datos
-├── utils/          # Utilidades y lógica de negocio
-├── worker/         # Workers para procesamiento de tareas en segundo plano
-└── main.py         # Punto de entrada de la aplicación FastAPI
-```
 
-- **docker-compose.yml**: Orquesta los servicios de API, Worker y Redis.
+## Requisitos Previos
 
-## Prerrequisitos
+*   Docker y Docker Compose (Recomendado)
+*   Python 3.12+ (Para ejecución local sin Docker)
+*   Proyecto y cuenta en [Supabase](https://supabase.com/)
+*   Clave(s) de API (p. ej., de OpenAI)
 
-Asegúrate de tener instalados:
-
-- [Docker](https://www.docker.com/)
-- [Docker Compose](https://docs.docker.com/compose/)
-
-## Instalación y Uso
+## Instalación y Ejecución
 
 1. **Clonar el repositorio:**
-
    ```bash
    git clone <url-del-repositorio>
    cd SistemaRAG
    ```
 
-2. **Configurar variables de entorno:**
-   Crea un archivo `.env` en la raíz del proyecto basándote en el ejemplo (si existe) o con las siguientes variables requeridas (ejemplo):
-   ```env
-   # .env
-   SUPABASE_URL=...
-   SUPABASE_KEY=...
-   OPENAI_API_KEY=...
-   REDIS_URL=redis://redis:6379
-   ```
+2. **Configurar las Variables de Entorno:**
+   Crea un archivo `.env` en el directorio raíz basándote en las variables requeridas por el sistema (por ejemplo, credenciales de Supabase, Redis URL, claves de la API de OpenAI).
 
-3. **Iniciar los servicios:**
-   Utiliza Docker Compose para construir y levantar los contenedores.
+3. **Ejecutar con Docker Compose (Recomendado):**
+   Levanta todos los servicios (API, Worker, Redis) ejecutando:
    ```bash
    docker-compose up --build
    ```
+   *La API estará disponible en `http://localhost:8000`.*
 
-4. **Acceder a la API:**
-   Una vez que los contenedores estén corriendo, la API estará disponible en:
-   - URL Base: `http://localhost:8000`
-   - Documentación Interactiva (Swagger UI): `http://localhost:8000/docs`
+4. **Ejecución Local (Alternativa sin Docker):**
+   ```bash
+   # Crear entorno virtual e instalar dependencias
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
 
-## Desarrollo Local
+   # Iniciar el servidor de desarrollo
+   uvicorn backend.main:app --reload
 
-El volumen de Docker está configurado para recargar el código automáticamente (`backend:/app`), por lo que los cambios en el código local se reflejarán inmediatamente en el contenedor.
+   # En otra terminal, iniciar el worker de RQ
+   rq worker --url redis://localhost:6379
+   ```
+
+## Endpoints Principales
+
+La documentación interactiva de la API de FastAPI (Swagger UI) está disponible en `http://localhost:8000/docs` una vez que el servidor esté en ejecución.
+
+*   `POST /api/auth/register` - Registro de usuario.
+*   `POST /api/auth/login` - Inicio de sesión y obtención de tokens.
+*   `GET /api/dashboard/get-documents` - Lista los documentos del usuario.
+*   `POST /api/supabase/upload_document_to_supabase` - Sube un documento para ser procesado por el RAG.
+*   `POST /api/supabase/ask-from-supabase` - Realiza una pregunta a los documentos (vía REST).
+*   `WS /api/supabase/ws` - Endpoint de WebSocket para interacción en tiempo real.
+*   `POST /api/messages/get-messages` - Recupera los mensajes de una conversación.
